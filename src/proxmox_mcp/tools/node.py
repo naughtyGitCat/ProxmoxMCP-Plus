@@ -86,7 +86,12 @@ class NodeTools(ProxmoxTool):
                         "uptime": 0,
                         "maxcpu": "N/A",
                         "memory": {
-                            "used": node.get("maxmem", 0) - node.get("mem", 0),
+                            # The nodes.get() API already returns memory usage
+                            # in the "mem" field, so use that directly. The
+                            # previous implementation subtracted this value
+                            # from "maxmem" which actually produced the amount
+                            # of *free* memory instead of the used memory.
+                            "used": node.get("mem", 0),
                             "total": node.get("maxmem", 0)
                         }
                     })
