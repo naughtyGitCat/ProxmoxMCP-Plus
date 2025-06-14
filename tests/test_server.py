@@ -27,7 +27,7 @@ def mock_env_vars():
 @pytest.fixture
 def mock_proxmox():
     """Fixture to mock ProxmoxAPI."""
-    with patch("proxmox_mcp.server.ProxmoxAPI") as mock:
+    with patch("proxmox_mcp.core.proxmox.ProxmoxAPI") as mock:
         mock.return_value.nodes.get.return_value = [
             {"node": "node1", "status": "online"},
             {"node": "node2", "status": "online"}
