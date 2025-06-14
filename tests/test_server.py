@@ -222,3 +222,14 @@ async def test_execute_vm_command_with_error(server, mock_proxmox):
     assert result["output"] == ""
     assert result["error"] == "command not found"
     assert result["exit_code"] == 1
+
+@pytest.mark.asyncio
+async def test_start_vm(server, mock_proxmox):
+    """Test start_vm tool."""
+    mock_proxmox.return_value.nodes.return_value.qemu.return_value.status.current.get.return_value = {
+        "status": "stopped"
+    }
+    mock_proxmox.return_value.nodes.return_value.qemu.return_value.status.start.post.return_value = "UPID:taskid"
+
+    response = await server.mcp.call_tool("start_vm", {"node": "node1", "vmid": "100"})
+    assert "start initiated successfully" in response[0].text
