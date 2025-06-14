@@ -69,7 +69,7 @@ This project is built upon the excellent open-source project [ProxmoxMCP](https:
 
 ### Prerequisites
 - UV package manager (recommended)
-- Python 3.10 or higher
+- Python 3.9 or higher
 - Git
 - Access to a Proxmox server with API token credentials
 
