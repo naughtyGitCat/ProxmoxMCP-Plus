@@ -104,10 +104,20 @@ Example:
 Delete test VM with ID 998 on node pve"""
 
 # Container tool descriptions
-GET_CONTAINERS_DESC = """List all LXC containers across the cluster with their status and configuration.
+GET_CONTAINERS_DESC = """List LXC containers across the cluster (or filter by node).
 
-Example:
-{"vmid": "200", "name": "nginx", "status": "running", "template": "ubuntu-20.04"}"""
+Parameters:
+- node (optional): Node name to filter (e.g. 'pve1')
+- include_stats (bool, default true): Include live CPU/memory stats
+- include_raw (bool, default false): Include raw Proxmox API payloads for debugging
+- format_style ('pretty'|'json', default 'pretty'): Pretty text or raw JSON list
+
+Notes:
+- Live stats from /nodes/{node}/lxc/{vmid}/status/current.
+- If maxmem is 0 (unlimited), memory limit falls back to /config.memory (MiB).
+- If live returns zeros, the most recent RRD sample is used as a fallback.
+- Fields provided: cores (CPU cores/cpulimit), memory (MiB limit), cpu_pct, mem_bytes, maxmem_bytes, mem_pct, unlimited_memory.
+"""
 
 # Storage tool descriptions
 GET_STORAGE_DESC = """List storage pools across the cluster with their usage and configuration.
