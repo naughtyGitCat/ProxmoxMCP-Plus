@@ -32,6 +32,7 @@ from .tools.node import NodeTools
 from .tools.vm import VMTools
 from .tools.storage import StorageTools
 from .tools.cluster import ClusterTools
+from .tools.containers import ContainerTools
 from .tools.definitions import (
     GET_NODES_DESC,
     GET_NODE_STATUS_DESC,
@@ -69,6 +70,8 @@ class ProxmoxMCPServer:
         self.vm_tools = VMTools(self.proxmox)
         self.storage_tools = StorageTools(self.proxmox)
         self.cluster_tools = ClusterTools(self.proxmox)
+        self.container_tools = ContainerTools(self.proxmox)
+
         
         # Initialize MCP server
         self.mcp = FastMCP("ProxmoxMCP")
@@ -170,6 +173,18 @@ class ProxmoxMCPServer:
         @self.mcp.tool(description=GET_CLUSTER_STATUS_DESC)
         def get_cluster_status():
             return self.cluster_tools.get_cluster_status()
+
+        # Containers (LXC)
+        @self.mcp.tool(description=GET_CONTAINERS_DESC)
+        def get_containers(
+            node: Annotated[Optional[str], Field(description="Optional node name (e.g. 'pve1')")] = None,
+            include_stats: Annotated[bool, Field(description="Include live stats and fallbacks", default=True)] = True,
+            include_raw: Annotated[bool, Field(description="Include raw status/config", default=False)] = False,
+            format_style: Annotated[str, Field(description="'pretty' or 'json'", pattern="^(pretty|json)$")] = "pretty",
+        ):
+            return self.container_tools.get_containers(
+                node=node, include_stats=include_stats, include_raw=include_raw, format_style=format_style
+            )
 
     def start(self) -> None:
         """Start the MCP server.
