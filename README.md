@@ -1,5 +1,3 @@
-@mmakam2: I added extensions for managing containers.
-
 # ProxmoxMCP-Plus - Enhanced Proxmox MCP Server
 
 
