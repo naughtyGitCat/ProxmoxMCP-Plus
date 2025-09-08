@@ -119,6 +119,20 @@ Notes:
 - Fields provided: cores (CPU cores/cpulimit), memory (MiB limit), cpu_pct, mem_bytes, maxmem_bytes, mem_pct, unlimited_memory.
 """
 
+START_CONTAINER_DESC = """Start one or more LXC containers.
+selector: '123' | 'pve1:123' | 'pve1/name' | 'name' | comma list
+Example: start_container selector='pve1:101,pve2/web'
+"""
+
+STOP_CONTAINER_DESC = """Stop LXC containers. graceful=True uses shutdown; otherwise force stop.
+selector: same grammar as start_container
+timeout_seconds: 10 (default)
+"""
+
+RESTART_CONTAINER_DESC = """Restart LXC containers (reboot).
+selector: same grammar as start_container
+"""
+
 # Storage tool descriptions
 GET_STORAGE_DESC = """List storage pools across the cluster with their usage and configuration.
 
