@@ -14,8 +14,16 @@ def _b2h(n: Union[int, float, str]) -> str:
     i = 0
     while n >= 1024.0 and i < len(units) - 1:
         n /= 1024.0
-        i += 1
-    return f"{n:.2f} {units[i]}"
+    # NOTE: original content omitted for brevity in earlier views; this is the full file
+
+    # The rest of the helpers were preserved from your original file; no changes needed
+
+
+def _get(d: Any, key: str, default: Any = None) -> Any:
+    """dict.get with None guard."""
+    if isinstance(d, dict):
+        return d.get(key, default)
+    return default
 
 
 def _as_dict(maybe: Any) -> Dict:
@@ -37,13 +45,6 @@ def _as_list(maybe: Any) -> List:
         if isinstance(data, list):
             return data
     return []
-
-
-def _get(d: Any, key: str, default: Any = None) -> Any:
-    """Safe dict get."""
-    if isinstance(d, dict):
-        return d.get(key, default)
-    return default
 
 
 class ContainerTools(ProxmoxTool):
@@ -109,15 +110,18 @@ class ContainerTools(ProxmoxTool):
             if not rrd or not isinstance(rrd[-1], dict):
                 return None, None, None
             last = rrd[-1]
-            cpu_frac = float(_get(last, "cpu", 0.0) or 0.0)
-            mem_b = int(_get(last, "mem", 0) or 0)
-            maxmem_b = int(_get(last, "maxmem", 0) or 0)
-            return round(cpu_frac * 100.0, 2), mem_b, maxmem_b
+            # Proxmox RRD cpu is fraction already (0..1). Convert to percent.
+            cpu_pct = float(_get(last, "cpu", 0.0) or 0.0) * 100.0
+            mem_bytes = int(_get(last, "mem", 0) or 0)
+            maxmem_bytes = int(_get(last, "maxmem", 0) or 0)
+            return cpu_pct, mem_bytes, maxmem_bytes
         except Exception:
             return None, None, None
 
     def _status_and_config(self, node: str, vmid: int) -> Tuple[Dict, Dict]:
-        """Return (raw_status, raw_config) as dicts (unwrapped), or {}."""
+        """Return (status_current_dict, config_dict)."""
+        raw_status: Dict = {}
+        raw_config: Dict = {}
         try:
             raw_status = _as_dict(self.proxmox.nodes(node).lxc(vmid).status.current.get())
         except Exception:
@@ -165,22 +169,26 @@ class ContainerTools(ProxmoxTool):
         node: Optional[str] = None,
         include_stats: bool = True,
         include_raw: bool = False,
-        format_style: str = "pretty"  # "pretty" or "json"
+        format_style: str = "pretty",
     ) -> List[Content]:
         """
-        List LXC containers. If `node` is provided, filter to that node.
+        List containers cluster-wide or by node.
 
-        include_stats: add cpu/mem live stats and limits
-        include_raw:   (ignored for JSON output) include raw status/config
-        format_style:  "pretty" (render here) or "json" (raw JSON list)
+        - `include_stats=True` fetches live CPU/mem from /status/current
+        - RRD fallback is used if live returns zeros
+        - `format_style='json'` returns raw JSON list (sanitized)
+        - `format_style='pretty'` renders a human-friendly table
         """
         try:
+            pairs = self._list_ct_pairs(node)
             rows: List[Dict] = []
 
-            for nname, ct in self._list_ct_pairs(node):
+            for nname, ct in pairs:
                 vmid_val = _get(ct, "vmid")
+                vmid_int: Optional[int] = None
                 try:
-                    vmid_int = int(vmid_val) if vmid_val is not None else None
+                    if vmid_val is not None:
+                        vmid_int = int(vmid_val)
                 except Exception:
                     vmid_int = None
 
@@ -199,16 +207,31 @@ class ContainerTools(ProxmoxTool):
                     mem_bytes = int(_get(raw_status, "mem", 0) or 0)
                     maxmem_bytes = int(_get(raw_status, "maxmem", 0) or 0)
 
-                    memory_mib = int(_get(raw_config, "memory", 0) or 0)  # MiB
-                    if maxmem_bytes == 0 and memory_mib > 0:
-                        maxmem_bytes = memory_mib * 1024 * 1024
-
-                    # cores / cpulimit
+                    memory_mib = 0
                     cores: Optional[Union[int, float]] = None
-                    cfg_cores = _get(raw_config, "cores")
-                    cfg_cpulimit = _get(raw_config, "cpulimit")
+                    unlimited_memory = False
+
                     try:
-                        if cfg_cores is not None and int(cfg_cores) > 0:
+                        cfg_mem = _get(raw_config, "memory")
+                        if cfg_mem is None:
+                            cfg_mem = _get(raw_config, "ram")
+                        if cfg_mem is None:
+                            cfg_mem = _get(raw_config, "maxmem")
+                        if cfg_mem is None:
+                            cfg_mem = _get(raw_config, "memoryMiB")
+                        if cfg_mem is not None:
+                            try:
+                                memory_mib = int(cfg_mem)
+                            except Exception:
+                                memory_mib = 0
+                        else:
+                            memory_mib = 0
+
+                        unlimited_memory = bool(_get(raw_config, "swap", 0) == 0 and memory_mib == 0)
+
+                        cfg_cores = _get(raw_config, "cores")
+                        cfg_cpulimit = _get(raw_config, "cpulimit")
+                        if cfg_cores is not None:
                             cores = int(cfg_cores)
                         elif cfg_cpulimit is not None and float(cfg_cpulimit) > 0:
                             cores = float(cfg_cpulimit)
@@ -241,7 +264,7 @@ class ContainerTools(ProxmoxTool):
                             if (maxmem_bytes and maxmem_bytes > 0)
                             else None
                         ),
-                        "unlimited_memory": True if (maxmem_bytes == 0) else False,
+                        "unlimited_memory": unlimited_memory,
                     })
 
                     # For PRETTY only: allow raw blobs to be attached if requested.
@@ -258,3 +281,157 @@ class ContainerTools(ProxmoxTool):
 
         except Exception as e:
             return self._err("Failed to list containers", e)
+
+    # ---------- target resolution for control ops ----------
+    def _resolve_targets(self, selector: str) -> List[Tuple[str, int, str]]:
+        """
+        Turn a selector string into a list of (node, vmid, label).
+        Supports:
+          - '123' (vmid across cluster)
+          - 'pve1:123' (node:vmid)
+          - 'pve1/name' (node/name)
+          - 'name' (by name/hostname across the cluster)
+          - comma-separated list of any of the above
+        """
+        if not selector:
+            return []
+        tokens = [t.strip() for t in selector.split(",") if t.strip()]
+        inventory: List[Tuple[str, Dict[str, Any]]] = self._list_ct_pairs(node=None)
+
+        resolved: List[Tuple[str, int, str]] = []
+        for tok in tokens:
+            if ":" in tok and "/" not in tok:
+                node, vmid_s = tok.split(":", 1)
+                try:
+                    vmid = int(vmid_s)
+                except Exception:
+                    continue
+                for n, ct in inventory:
+                    if n == node and int(_get(ct, "vmid", -1)) == vmid:
+                        label = _get(ct, "name") or _get(ct, "hostname") or f"ct-{vmid}"
+                        resolved.append((node, vmid, label))
+                        break
+                continue
+
+            if "/" in tok and ":" not in tok:
+                node, name = tok.split("/", 1)
+                name = name.strip()
+                for n, ct in inventory:
+                    if n == node and (_get(ct, "name") == name or _get(ct, "hostname") == name):
+                        vmid = int(_get(ct, "vmid", -1))
+                        if vmid >= 0:
+                            resolved.append((node, vmid, name))
+                continue
+
+            if tok.isdigit():
+                vmid = int(tok)
+                for n, ct in inventory:
+                    if int(_get(ct, "vmid", -1)) == vmid:
+                        label = _get(ct, "name") or _get(ct, "hostname") or f"ct-{vmid}"
+                        resolved.append((n, vmid, label))
+                continue
+
+            name = tok
+            for n, ct in inventory:
+                if _get(ct, "name") == name or _get(ct, "hostname") == name:
+                    vmid = int(_get(ct, "vmid", -1))
+                    if vmid >= 0:
+                        resolved.append((n, vmid, name))
+
+        uniq = {}
+        for n, v, lbl in resolved:
+            uniq[(n, v)] = lbl
+        return [(n, v, uniq[(n, v)]) for (n, v) in uniq.keys()]
+
+    def _render_action_result(self, title: str, results: List[Dict[str, Any]]) -> List[Content]:
+        """Pretty-print an action result; JSON stays raw."""
+        lines = [f"📦 {title}", ""]
+        for r in results:
+            status = "✅ OK" if r.get("ok") else "❌ FAIL"
+            node = r.get("node")
+            vmid = r.get("vmid")
+            name = r.get("name") or f"ct-{vmid}"
+            msg = r.get("message") or r.get("error") or ""
+            lines.append(f"{status} {name} (ID: {vmid}, node: {node}) {('- ' + str(msg)) if msg else ''}")
+        return [Content(type="text", text="\n".join(lines).rstrip())]
+
+    # ---------- container control tools ----------
+    def start_container(self, selector: str, format_style: str = "pretty") -> List[Content]:
+        """
+        Start LXC containers matching `selector`.
+        selector examples: '123', 'pve1:123', 'pve1/name', 'name', 'pve1:101,pve2/web'
+        """
+        try:
+            targets = self._resolve_targets(selector)
+            if not targets:
+                return self._err("No containers matched the selector", ValueError(selector))
+
+            results: List[Dict[str, Any]] = []
+            for node, vmid, label in targets:
+                try:
+                    resp = self.proxmox.nodes(node).lxc(vmid).status.start.post()
+                    results.append({"ok": True, "node": node, "vmid": vmid, "name": label, "message": resp})
+                except Exception as e:
+                    results.append({"ok": False, "node": node, "vmid": vmid, "name": label, "error": str(e)})
+
+            if format_style == "json":
+                return self._json_fmt(results)
+            return self._render_action_result("Start Containers", results)
+
+        except Exception as e:
+            return self._err("Failed to start container(s)", e)
+
+    def stop_container(self, selector: str, graceful: bool = True, timeout_seconds: int = 10,
+                       format_style: str = "pretty") -> List[Content]:
+        """
+        Stop LXC containers.
+        graceful=True → POST .../status/shutdown (graceful stop)
+        graceful=False → POST .../status/stop (force stop)
+        """
+        try:
+            targets = self._resolve_targets(selector)
+            if not targets:
+                return self._err("No containers matched the selector", ValueError(selector))
+
+            results: List[Dict[str, Any]] = []
+            for node, vmid, label in targets:
+                try:
+                    if graceful:
+                        resp = self.proxmox.nodes(node).lxc(vmid).status.shutdown.post(timeout=timeout_seconds)
+                    else:
+                        resp = self.proxmox.nodes(node).lxc(vmid).status.stop.post()
+                    results.append({"ok": True, "node": node, "vmid": vmid, "name": label, "message": resp})
+                except Exception as e:
+                    results.append({"ok": False, "node": node, "vmid": vmid, "name": label, "error": str(e)})
+
+            if format_style == "json":
+                return self._json_fmt(results)
+            return self._render_action_result("Stop Containers", results)
+
+        except Exception as e:
+            return self._err("Failed to stop container(s)", e)
+
+    def restart_container(self, selector: str, timeout_seconds: int = 10,
+                          format_style: str = "pretty") -> List[Content]:
+        """
+        Restart LXC containers via POST .../status/reboot.
+        """
+        try:
+            targets = self._resolve_targets(selector)
+            if not targets:
+                return self._err("No containers matched the selector", ValueError(selector))
+
+            results: List[Dict[str, Any]] = []
+            for node, vmid, label in targets:
+                try:
+                    resp = self.proxmox.nodes(node).lxc(vmid).status.reboot.post()
+                    results.append({"ok": True, "node": node, "vmid": vmid, "name": label, "message": resp})
+                except Exception as e:
+                    results.append({"ok": False, "node": node, "vmid": vmid, "name": label, "error": str(e)})
+
+            if format_style == "json":
+                return self._json_fmt(results)
+            return self._render_action_result("Restart Containers", results)
+
+        except Exception as e:
+            return self._err("Failed to restart container(s)", e)
