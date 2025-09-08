@@ -45,6 +45,9 @@ from .tools.definitions import (
     RESET_VM_DESC,
     DELETE_VM_DESC,
     GET_CONTAINERS_DESC,
+    START_CONTAINER_DESC,
+    STOP_CONTAINER_DESC,
+    RESTART_CONTAINER_DESC,
     GET_STORAGE_DESC,
     GET_CLUSTER_STATUS_DESC
 )
@@ -185,6 +188,36 @@ class ProxmoxMCPServer:
             return self.container_tools.get_containers(
                 node=node, include_stats=include_stats, include_raw=include_raw, format_style=format_style
             )
+
+        # Container controls
+        @self.mcp.tool(description=START_CONTAINER_DESC)
+        def start_container(
+            selector: Annotated[str, Field(description="CT selector: '123' | 'pve1:123' | 'pve1/name' | 'name' | comma list")],
+            format_style: Annotated[str, Field(description="'pretty' or 'json'", pattern="^(pretty|json)$")] = "pretty",
+        ):
+            return self.container_tools.start_container(selector=selector, format_style=format_style)
+
+        @self.mcp.tool(description=STOP_CONTAINER_DESC)
+        def stop_container(
+            selector: Annotated[str, Field(description="CT selector (see start_container)")],
+            graceful: Annotated[bool, Field(description="Graceful shutdown (True) or forced stop (False)", default=False)] = False,
+            timeout_seconds: Annotated[int, Field(description="Timeout for stop/shutdown", ge=1, le=600)] = 10,
+            format_style: Annotated[str, Field(description="'pretty' or 'json'", pattern="^(pretty|json)$")] = "pretty",
+        ):
+            return self.container_tools.stop_container(
+               selector=selector, graceful=graceful, timeout_seconds=timeout_seconds, format_style=format_style
+            )
+
+        @self.mcp.tool(description=RESTART_CONTAINER_DESC)
+        def restart_container(
+            selector: Annotated[str, Field(description="CT selector (see start_container)")],
+            timeout_seconds: Annotated[int, Field(description="Timeout for reboot", ge=1, le=600)] = 10,
+            format_style: Annotated[str, Field(description="'pretty' or 'json'", pattern="^(pretty|json)$")] = "pretty",
+        ):
+            return self.container_tools.restart_container(
+               selector=selector, timeout_seconds=timeout_seconds, format_style=format_style
+            )
+
 
     def start(self) -> None:
         """Start the MCP server.
