@@ -14,7 +14,8 @@ def _b2h(n: Union[int, float, str]) -> str:
     i = 0
     while n >= 1024.0 and i < len(units) - 1:
         n /= 1024.0
-    # NOTE: original content omitted for brevity in earlier views; this is the full file
+        i += 1
+    return f"{n:.2f} {units[i]}"
 
     # The rest of the helpers were preserved from your original file; no changes needed
 
