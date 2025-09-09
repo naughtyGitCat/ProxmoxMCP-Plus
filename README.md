@@ -24,8 +24,8 @@ This project is built upon the excellent open-source project [ProxmoxMCP](https:
 
 - 🐳 **New Container Support**
   - `get_containers` - List all LXC containers and their status
-  - `start_container` - Stop LXC container
-  - `stop_container` - Start LXC container
+  - `start_container` - Start LXC container
+  - `stop_container` - Stop LXC container
   - `restart_container` - Restart LXC container (forcefully/gracefully)
 
 - 📊 **Enhanced Monitoring and Display**
