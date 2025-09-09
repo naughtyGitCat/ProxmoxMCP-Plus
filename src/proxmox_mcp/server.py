@@ -200,14 +200,13 @@ class ProxmoxMCPServer:
         @self.mcp.tool(description=STOP_CONTAINER_DESC)
         def stop_container(
             selector: Annotated[str, Field(description="CT selector (see start_container)")],
-            graceful: Annotated[bool, Field(description="Graceful shutdown (True) or forced stop (False)", default=False)] = False,
+            graceful: Annotated[bool, Field(description="Graceful shutdown (True) or forced stop (False)", default=True)] = True,
             timeout_seconds: Annotated[int, Field(description="Timeout for stop/shutdown", ge=1, le=600)] = 10,
-            format_style: Annotated[str, Field(description="'pretty' or 'json'", pattern="^(pretty|json)$")] = "pretty",
+            format_style: Annotated[Literal["pretty","json"], Field(description="Output format")] = "pretty",
         ):
             return self.container_tools.stop_container(
                selector=selector, graceful=graceful, timeout_seconds=timeout_seconds, format_style=format_style
             )
-
         @self.mcp.tool(description=RESTART_CONTAINER_DESC)
         def restart_container(
             selector: Annotated[str, Field(description="CT selector (see start_container)")],
