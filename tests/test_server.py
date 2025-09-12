@@ -134,7 +134,7 @@ async def test_update_container_resources(server, mock_proxmox):
     ]
 
     ct_api = mock_proxmox.return_value.nodes.return_value.lxc.return_value
-    ct_api.config.post.return_value = {}
+    ct_api.config.put.return_value = {}
     ct_api.resize.post.return_value = {}
 
     response = await server.mcp.call_tool(
@@ -144,7 +144,7 @@ async def test_update_container_resources(server, mock_proxmox):
     result = json.loads(response[0].text)
 
     assert result[0]["ok"] is True
-    ct_api.config.post.assert_called_with(cores=2, memory=512)
+    ct_api.config.put.assert_called_with(cores=2, memory=512)
     ct_api.resize.post.assert_called_with(disk="rootfs", size="+1G")
 
 @pytest.mark.asyncio

@@ -492,7 +492,7 @@ class ContainerTools(ProxmoxTool):
                         changes.append(f"memory={memory}MiB")
 
                     if update_params:
-                        self.proxmox.nodes(node).lxc(vmid).config.post(**update_params)
+                        self.proxmox.nodes(node).lxc(vmid).config.put(**update_params)
 
                     if disk_gb is not None:
                         size_str = f"+{disk_gb}G"
