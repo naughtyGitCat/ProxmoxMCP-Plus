@@ -496,7 +496,8 @@ class ContainerTools(ProxmoxTool):
 
                     if disk_gb is not None:
                         size_str = f"+{disk_gb}G"
-                        self.proxmox.nodes(node).lxc(vmid).resize.post(disk=disk, size=size_str)
+                        # Use PUT for disk resize - some Proxmox versions reject POST
+                        self.proxmox.nodes(node).lxc(vmid).resize.put(disk=disk, size=size_str)
                         changes.append(f"{disk}+={disk_gb}G")
 
                     rec["message"] = ", ".join(changes) if changes else "no changes"
