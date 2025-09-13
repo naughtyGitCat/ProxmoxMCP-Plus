@@ -138,6 +138,7 @@ UPDATE_CONTAINER_RESOURCES_DESC = """Update resources for one or more LXC contai
 selector: same grammar as start_container
 cores: New CPU core count (optional)
 memory: New memory limit in MiB (optional)
+swap: New swap limit in MiB (optional)
 disk_gb: Additional disk size in GiB to add (optional)
 disk: Disk identifier to resize (default 'rootfs')
 """
