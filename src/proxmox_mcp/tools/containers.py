@@ -457,16 +457,18 @@ class ContainerTools(ProxmoxTool):
         selector: str,
         cores: Optional[int] = None,
         memory: Optional[int] = None,
+        swap: Optional[int] = None,
         disk_gb: Optional[int] = None,
         disk: str = "rootfs",
         format_style: str = "pretty",
     ) -> List[Content]:
-        """Update container CPU/memory limits and/or extend disk size.
+        """Update container CPU/memory/swap limits and/or extend disk size.
 
         Parameters:
             selector: Container selector (same grammar as start_container)
             cores: New CPU core count
             memory: New memory limit in MiB
+            swap: New swap limit in MiB
             disk_gb: Additional disk size to add in GiB
             disk: Disk identifier to resize (default 'rootfs')
             format_style: Output format ('pretty' or 'json')
@@ -490,6 +492,9 @@ class ContainerTools(ProxmoxTool):
                     if memory is not None:
                         update_params["memory"] = memory
                         changes.append(f"memory={memory}MiB")
+                    if swap is not None:
+                        update_params["swap"] = swap
+                        changes.append(f"swap={swap}MiB")
 
                     if update_params:
                         self.proxmox.nodes(node).lxc(vmid).config.put(**update_params)
