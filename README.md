@@ -132,7 +132,7 @@ Before starting, ensure you have:
         "mcp": {
            "host": "0.0.0.0",             # mcp expose host (default is 0.0.0.0)
            "port": 8000,                  # mcp expose port (default is 8000)
-           "transport": "stdio"           # mcp transport (default is stdio, can be stdio or sse or streamable)
+           "transport": "STDIO"           # mcp transport (default is STDIO, can be STDIO or SSE or Streamable)
        }
    }
    ```

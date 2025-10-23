@@ -78,19 +78,19 @@ class ProxmoxMCPServer:
         self.cluster_tools = ClusterTools(self.proxmox)
         self.container_tools = ContainerTools(self.proxmox)
 
-        mcp_log_level = Literal["INFO"]
+        mcp_log_level = "INFO"
 
         match self.config.logging.level.upper():
             case "DEBUG":
-                mcp_log_level = Literal["DEBUG"]
+                mcp_log_level = "DEBUG"
             case "INFO":
-                mcp_log_level = Literal["INFO"]
+                mcp_log_level = "INFO"
             case "WARNING":
-                mcp_log_level = Literal["WARNING"]
+                mcp_log_level = "WARNING"
             case "ERROR":
-                mcp_log_level = Literal["ERROR"]
+                mcp_log_level = "ERROR"
             case "CRITICAL":
-                mcp_log_level = Literal["CRITICAL"]
+                mcp_log_level = "CRITICAL"
         
         # Initialize MCP server
         self.mcp = FastMCP("ProxmoxMCP",
