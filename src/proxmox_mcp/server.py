@@ -18,11 +18,12 @@ import logging
 import os
 import sys
 import signal
-from typing import Optional, List, Annotated, Literal
+from typing import Optional, List, Annotated, Literal, LiteralString
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.tools import Tool
 from mcp.types import TextContent as Content
+from pycparser.ply.cpp import literals
 from pydantic import Field, BaseModel
 from fastapi import Body
 
@@ -77,9 +78,25 @@ class ProxmoxMCPServer:
         self.cluster_tools = ClusterTools(self.proxmox)
         self.container_tools = ContainerTools(self.proxmox)
 
+        mcp_log_level = Literal["INFO"]
+
+        match self.config.logging.level.upper():
+            case "DEBUG":
+                mcp_log_level = Literal["DEBUG"]
+            case "INFO":
+                mcp_log_level = Literal["INFO"]
+            case "WARNING":
+                mcp_log_level = Literal["WARNING"]
+            case "ERROR":
+                mcp_log_level = Literal["ERROR"]
+            case "CRITICAL":
+                mcp_log_level = Literal["CRITICAL"]
         
         # Initialize MCP server
-        self.mcp = FastMCP("ProxmoxMCP")
+        self.mcp = FastMCP("ProxmoxMCP",
+                           host=self.config.mcp.host,
+                           port=self.config.mcp.port,
+                           log_level=mcp_log_level)
         self._setup_tools()
 
     def _setup_tools(self) -> None:
@@ -270,9 +287,17 @@ class ProxmoxMCPServer:
 
         try:
             self.logger.info("Starting MCP server...")
-            anyio.run(self.mcp.run_stdio_async)
-        except Exception as e:
-            self.logger.error(f"Server error: {e}")
+            match self.config.mcp.transport.upper():
+                case "STDIO":
+                    anyio.run(self.mcp.run_stdio_async)
+                case "SSE":
+                    anyio.run(self.mcp.run_sse_async)
+                case "STREAMABLE":
+                    anyio.run(self.mcp.run_streamable_http_async)
+                case _:
+                    raise ValueError(f"Unknown transport: {self.config.mcp.transport}")
+        except Exception as ex:
+            self.logger.error(f"Server error: {ex}")
             sys.exit(1)
 
 if __name__ == "__main__":

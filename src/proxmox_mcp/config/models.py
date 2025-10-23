@@ -13,7 +13,8 @@ The models provide:
 - Field descriptions
 - Required vs optional field handling
 """
-from typing import Optional, Annotated
+from typing import Optional, Annotated, Literal
+
 from pydantic import BaseModel, Field
 
 class NodeStatus(BaseModel):
@@ -57,6 +58,14 @@ class AuthConfig(BaseModel):
     token_name: str  # Required: API token name
     token_value: str  # Required: API token secret
 
+class MCPConfig(BaseModel):
+    """
+    Model for SSE and streamable configuration.
+    """
+    host: str = "127.0.0.1"
+    port: int = 8000
+    transport: Literal["STDIO","SSE", "Streamable"] = "Streamable"
+
 class LoggingConfig(BaseModel):
     """Model for logging configuration.
     
@@ -78,3 +87,4 @@ class Config(BaseModel):
     proxmox: ProxmoxConfig  # Required: Proxmox connection settings
     auth: AuthConfig  # Required: Authentication credentials
     logging: LoggingConfig  # Required: Logging configuration
+    mcp: MCPConfig  # Required: Server-Sent Events configuration
