@@ -129,6 +129,11 @@ Before starting, ensure you have:
            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
            "file": "proxmox_mcp.log"      # Optional: Log to file
        }
+        "mcp": {
+           "host": "0.0.0.0",             # mcp expose host (default is 0.0.0.0)
+           "port": 8000,                  # mcp expose port (default is 8000)
+           "transport": "stdio"           # mcp transport (default is stdio, can be stdio or sse or streamable)
+       }
    }
    ```
 
