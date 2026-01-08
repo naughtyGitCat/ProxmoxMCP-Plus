@@ -64,7 +64,7 @@ class MCPConfig(BaseModel):
     """
     host: str = "127.0.0.1"
     port: int = 8000
-    transport: Literal["STDIO","SSE", "Streamable"] = "Streamable"
+    transport: Literal["STDIO","SSE", "Streamable"] = "STDIO"
 
 class LoggingConfig(BaseModel):
     """Model for logging configuration.
@@ -87,4 +87,4 @@ class Config(BaseModel):
     proxmox: ProxmoxConfig  # Required: Proxmox connection settings
     auth: AuthConfig  # Required: Authentication credentials
     logging: LoggingConfig  # Required: Logging configuration
-    mcp: MCPConfig  # Required: Server-Sent Events configuration
+    mcp: MCPConfig = MCPConfig()  # Optional: transport configuration (default: STDIO)
