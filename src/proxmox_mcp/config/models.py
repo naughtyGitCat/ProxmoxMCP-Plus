@@ -87,4 +87,4 @@ class Config(BaseModel):
     proxmox: ProxmoxConfig  # Required: Proxmox connection settings
     auth: AuthConfig  # Required: Authentication credentials
     logging: LoggingConfig  # Required: Logging configuration
-    mcp: MCPConfig = MCPConfig()  # Optional: transport configuration (default: STDIO)
+    mcp: Optional[MCPConfig] = MCPConfig()  # Optional: transport configuration (default: STDIO)
